@@ -1,0 +1,840 @@
+---
+title: "LC Visualization"
+author: "Claire S. Peterson"
+date: "1/30/2020"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(warning = FALSE)
+
+library(readxl)
+library(reshape2)
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+library(car)
+library(rcompanion)
+library(anchors)
+library(ggplot2)
+library(ggbeeswarm)
+
+# df = read_excel("U:/FTDC-IrwinLab/Ohm - TH Phase 1/LC Complete.xlsx", sheet = "Final LC with Dx")
+# 
+# df.ec.nm.wide.by.cohort= spread(df,Cohort, EC.NM.Area)
+# df.wide.by.cohort <- dcast(df, autopsyID.full  ~ Cohort, value.var="EC.NM.Area.in.LC")
+
+df = read.csv("Summarized LC Combined Results.csv")
+
+DataTransformation = function(var){
+  df<-as.data.frame(var) %>% transmute("Rank" = rank(var, ties.method = "average", na.last = "keep"), "λ=3" = var^3, "λ=2.5" = var^2.5, "λ=2" = var^2, "λ=1.5" = var^1.5, "λ=1" = var, "λ=0.5" = var^(1/2), "λ=0" = log(var), "λ=-0.5" = -var^(-1/2), "λ=-1" = -var^(-1), "λ=-1.5" = -var^(-1.5), "λ=-2" = -var^(-2), "λ=-2.5" = -var^(-2.5), "λ=-3" = -var^(-3))
+ 
+  df<-anchors::replace.value(data=df, names = c("λ=3", "λ=2.5", "λ=2", "λ=1.5", "λ=1", "λ=0.5", "λ=0", "λ=-0.5", "λ=-1", "λ=-1.5", "λ=-2", "λ=-2.5", "λ=-3"), from = "-Inf", to = as.double(NA))
+ 
+  print(lapply(df, shapiro.test))
+ 
+  print(gather(df, key = "Power", value = "Value", -Rank) %>% mutate(Power = factor(Power, levels = c("λ=3", "λ=2.5", "λ=2", "λ=1.5", "λ=1", "λ=0.5", "λ=0", "λ=-0.5", "λ=-1", "λ=-1.5", "λ=-2", "λ=-2.5", "λ=-3"))) %>% ggplot(aes(x=0, y=Value)) + geom_boxplot(outlier.shape = NA) + geom_beeswarm(shape=21, aes(fill = Rank)) + facet_wrap(~Power, scales = "free_y") + labs(x="", y="", title = "Tukey's ladder of powers y=x^λ"))
+}
+
+hc=df %>% filter(cohort_recoded_1HC_2AD_3TAU_4TDP_5OTHER==1)  
+
+```
+
+Visualize Distribtion by Cohort
+```{r}
+df2 = df[,c(1:32,35)]
+
+df.wide = reshape(df2, idvar='autopsyID.full', timevar='Cohort', direction='wide') 
+ggplot(gather(df.wide), aes(value)) + 
+    geom_histogram(bins = 10) + 
+    facet_wrap(~key, scales = 'free_x')
+
+df.wide <- sapply( df.wide[,2:ncol(df.wide)], as.numeric )
+df.wide = as.data.frame(df.wide)
+
+hist(df.wide$total.cell.count.AD)
+hist(df.wide$total.cell.count.TAU)
+hist(df.wide$total.cell.count.HC)
+hist(df.wide$total.cell.count.TDP)
+
+hist(df.wide$TH.pos.NM.pos.count.AD)
+hist(df.wide$TH.pos.NM.pos.count.TAU)
+hist(df.wide$TH.pos.NM.pos.count.HC)
+hist(df.wide$TH.pos.NM.pos.count.TDP)
+
+hist(df.wide$TH.pos.NM.neg.count.AD)
+hist(df.wide$TH.pos.NM.neg.count.TAU)
+hist(df.wide$TH.pos.NM.neg.count.HC)
+hist(df.wide$TH.pos.NM.neg.count.TDP)
+
+hist(df.wide$TH.neg.NM.pos.count.AD)
+hist(df.wide$TH.neg.NM.pos.count.TAU)
+hist(df.wide$TH.neg.NM.pos.count.HC)
+hist(df.wide$TH.neg.NM.pos.count.TDP)
+
+##### Normalized
+hist(df.wide$norm.total.cell.count.AD)
+hist(df.wide$norm.total.cell.count.TAU)
+hist(df.wide$norm.total.cell.count.HC)
+hist(df.wide$norm.total.cell.count.TDP)
+
+
+hist(df.wide$norm.TH.pos.NM.pos.count.AD)
+hist(df.wide$norm.TH.pos.NM.pos.count.TAU)
+hist(df.wide$norm.TH.pos.NM.pos.count.HC)
+hist(df.wide$norm.TH.pos.NM.pos.count.TDP)
+
+hist(df.wide$norm.TH.pos.NM.neg.count.AD)
+hist(df.wide$norm.TH.pos.NM.neg.count.TAU)
+hist(df.wide$norm.TH.pos.NM.neg.count.HC)
+hist(df.wide$norm.TH.pos.NM.neg.count.TDP)
+
+hist(df.wide$norm.TH.neg.NM.pos.count.AD)
+hist(df.wide$norm.TH.neg.NM.pos.count.TAU)
+hist(df.wide$norm.TH.neg.NM.pos.count.HC)
+hist(df.wide$norm.TH.neg.NM.pos.count.TDP)
+
+
+####
+hist(df.wide$TH.pos.NM.pos.Cell.Size.AD)
+hist(df.wide$TH.pos.NM.pos.Cell.Size.TAU)
+hist(df.wide$TH.pos.NM.pos.Cell.Size.HC)
+hist(df.wide$TH.pos.NM.pos.Cell.Size.TDP)
+
+hist(df.wide$TH.pos.NM.neg.Cell.Size.AD)
+hist(df.wide$TH.pos.NM.neg.Cell.Size.TAU)
+hist(df.wide$TH.pos.NM.neg.Cell.Size.HC)
+hist(df.wide$TH.pos.NM.neg.Cell.Size.TDP)
+
+hist(df.wide$TH.neg.NM.pos.Cell.Size.AD)
+hist(df.wide$TH.neg.NM.pos.Cell.Size.TAU)
+hist(df.wide$TH.neg.NM.pos.Cell.Size.HC)
+hist(df.wide$TH.neg.NM.pos.Cell.Size.TDP)
+
+###
+hist(df.wide$TH.pos.NM.pos.Percent.IC.NM.AD)
+hist(df.wide$TH.pos.NM.pos.Percent.IC.NM.TAU)
+hist(df.wide$TH.pos.NM.pos.Percent.IC.NM.HC)
+hist(df.wide$TH.pos.NM.pos.Percent.IC.NM.TDP)
+
+hist(df.wide$TH.pos.NM.neg.Percent.IC.NM.AD)
+hist(df.wide$TH.pos.NM.neg.Percent.IC.NM.TAU)
+hist(df.wide$TH.pos.NM.neg.Percent.IC.NM.HC)
+hist(df.wide$TH.pos.NM.neg.Percent.IC.NM.TDP)
+
+hist(df.wide$TH.neg.NM.pos.Percent.IC.NM.AD)
+hist(df.wide$TH.neg.NM.pos.Percent.IC.NM.TAU)
+hist(df.wide$TH.neg.NM.pos.Percent.IC.NM.HC)
+hist(df.wide$TH.neg.NM.pos.Percent.IC.NM.TDP)
+
+
+##########
+hist(df.wide$Total.EC.NM.Area.AD)
+hist(df.wide$Total.EC.NM.Area.TAU)
+hist(df.wide$Total.EC.NM.Area.HC)
+hist(df.wide$Total.EC.NM.Area.TDP)
+
+
+hist(df.wide$Cell.Size.HC)
+hist(df.wide$Percent.IC.NM.HC)
+hist(df.wide$norm.Total.EC.NM.Area.HC)
+
+
+################################################################
+boxplot(df.wide$total.cell.count.AD)
+boxplot(df.wide$total.cell.count.TAU)
+boxplot(df.wide$total.cell.count.HC)
+boxplot(df.wide$total.cell.count.TDP)
+
+boxplot(df.wide$TH.pos.NM.pos.count.AD)
+boxplot(df.wide$TH.pos.NM.pos.count.TAU)
+boxplot(df.wide$TH.pos.NM.pos.count.HC)
+boxplot(df.wide$TH.pos.NM.pos.count.TDP)
+
+boxplot(df.wide$TH.pos.NM.neg.count.AD)
+boxplot(df.wide$TH.pos.NM.neg.count.TAU)
+boxplot(df.wide$TH.pos.NM.neg.count.HC)
+boxplot(df.wide$TH.pos.NM.neg.count.TDP)
+
+boxplot(df.wide$TH.neg.NM.pos.count.AD)
+boxplot(df.wide$TH.neg.NM.pos.count.TAU)
+boxplot(df.wide$TH.neg.NM.pos.count.HC)
+boxplot(df.wide$TH.neg.NM.pos.count.TDP)
+
+##### Normalized
+boxplot(df.wide$norm.total.cell.count.AD)
+boxplot(df.wide$norm.total.cell.count.TAU)
+boxplot(df.wide$norm.total.cell.count.HC)
+boxplot(df.wide$norm.total.cell.count.TDP)
+
+
+boxplot(df.wide$norm.TH.pos.NM.pos.count.AD)
+boxplot(df.wide$norm.TH.pos.NM.pos.count.TAU)
+boxplot(df.wide$norm.TH.pos.NM.pos.count.HC)
+boxplot(df.wide$norm.TH.pos.NM.pos.count.TDP)
+
+boxplot(df.wide$norm.TH.pos.NM.neg.count.AD)
+boxplot(df.wide$norm.TH.pos.NM.neg.count.TAU)
+boxplot(df.wide$norm.TH.pos.NM.neg.count.HC)
+boxplot(df.wide$norm.TH.pos.NM.neg.count.TDP)
+
+boxplot(df.wide$norm.TH.neg.NM.pos.count.AD)
+boxplot(df.wide$norm.TH.neg.NM.pos.count.TAU)
+boxplot(df.wide$norm.TH.neg.NM.pos.count.HC)
+boxplot(df.wide$norm.TH.neg.NM.pos.count.TDP)
+
+
+####
+boxplot(df.wide$TH.pos.NM.pos.Cell.Size.AD)
+boxplot(df.wide$TH.pos.NM.pos.Cell.Size.TAU)
+boxplot(df.wide$TH.pos.NM.pos.Cell.Size.HC)
+boxplot(df.wide$TH.pos.NM.pos.Cell.Size.TDP)
+
+boxplot(df.wide$TH.pos.NM.neg.Cell.Size.AD)
+boxplot(df.wide$TH.pos.NM.neg.Cell.Size.TAU)
+boxplot(df.wide$TH.pos.NM.neg.Cell.Size.HC)
+boxplot(df.wide$TH.pos.NM.neg.Cell.Size.TDP)
+
+boxplot(df.wide$TH.neg.NM.pos.Cell.Size.AD)
+boxplot(df.wide$TH.neg.NM.pos.Cell.Size.TAU)
+boxplot(df.wide$TH.neg.NM.pos.Cell.Size.HC)
+boxplot(df.wide$TH.neg.NM.pos.Cell.Size.TDP)
+
+###
+boxplot(df.wide$TH.pos.NM.pos.Percent.IC.NM.AD)
+boxplot(df.wide$TH.pos.NM.pos.Percent.IC.NM.TAU)
+boxplot(df.wide$TH.pos.NM.pos.Percent.IC.NM.HC)
+boxplot(df.wide$TH.pos.NM.pos.Percent.IC.NM.TDP)
+
+boxplot(df.wide$TH.pos.NM.neg.Percent.IC.NM.AD)
+boxplot(df.wide$TH.pos.NM.neg.Percent.IC.NM.TAU)
+boxplot(df.wide$TH.pos.NM.neg.Percent.IC.NM.HC)
+boxplot(df.wide$TH.pos.NM.neg.Percent.IC.NM.TDP)
+
+boxplot(df.wide$TH.neg.NM.pos.Percent.IC.NM.AD)
+boxplot(df.wide$TH.neg.NM.pos.Percent.IC.NM.TAU)
+boxplot(df.wide$TH.neg.NM.pos.Percent.IC.NM.HC)
+boxplot(df.wide$TH.neg.NM.pos.Percent.IC.NM.TDP)
+
+
+##########
+boxplot(df.wide$Total.EC.NM.Area.AD)
+boxplot(df.wide$Total.EC.NM.Area.TAU)
+boxplot(df.wide$Total.EC.NM.Area.HC)
+boxplot(df.wide$Total.EC.NM.Area.TDP)
+```
+
+
+Transform Data
+```{r}
+# Transform run Tukey Ladder of Powers on all outcomes for cohorts
+primary.outcomes = df[,c("norm.total.cell.count", "Cell.Size", "Percent.IC.NM", "norm.Total.EC.NM.Area")]
+
+#subset cohorts
+hc=df %>% 
+  filter(cohort_recoded_1HC_2AD_3TAU_4TDP_5OTHER==1)
+tau = df %>%
+  filter(cohort_recoded_1HC_2AD_3TAU_4TDP_5OTHER==3)
+tdp = df %>%
+  filter(cohort_recoded_1HC_2AD_3TAU_4TDP_5OTHER==4)
+ad = df %>%
+  filter(cohort_recoded_1HC_2AD_3TAU_4TDP_5OTHER==2)
+
+
+# normalized cell count         --- Can also use transformTukey from rcompanion pkg
+DataTransformation(hc$norm.total.cell.count)
+DataTransformation(tau$norm.total.cell.count)
+DataTransformation(tdp$norm.total.cell.count)
+DataTransformation(ad$norm.total.cell.count)
+# use transformTukey function on variables to ID best lambda value 
+transformTukey(hc$norm.total.cell.count)
+transformTukey(tau$norm.total.cell.count)
+transformTukey(tdp$norm.total.cell.count)
+transformTukey(ad$norm.total.cell.count)
+# ideal uniform lambda = 0.33 - visualize transformed data - calculated from average of ideal lambda values
+hist((hc$norm.total.cell.count^0.33), main = "Transformed Data", breaks = 5)
+hist((tau$norm.total.cell.count^0.33), main = "Transformed Data", breaks = 5)
+hist((tdp$norm.total.cell.count^0.33), main = "Transformed Data", breaks = 5)
+hist((ad$norm.total.cell.count^0.33), main = "Transformed Data", breaks = 5)
+# verify data is still normal after transformation via shapiro test 
+shapiro.test(hc$norm.total.cell.count^0.33)
+shapiro.test(tau$norm.total.cell.count^0.33)
+shapiro.test(tdp$norm.total.cell.count^0.33)
+shapiro.test(ad$norm.total.cell.count^0.33)
+# create new column with transformed data
+df$trans.norm.total.cell.count = (df$norm.total.cell.count)^0.33
+
+
+# Raw cell count        
+DataTransformation(hc$total.cell.count)
+DataTransformation(tau$total.cell.count)
+DataTransformation(tdp$total.cell.count)
+DataTransformation(ad$total.cell.count)
+# use transformTukey function on variables to ID best lambda value 
+transformTukey(hc$total.cell.count)
+transformTukey(tau$total.cell.count)
+transformTukey(tdp$total.cell.count)
+transformTukey(ad$total.cell.count)
+# ideal uniform lambda = 0.406 - visualize transformed data - calculated from average of ideal lambda values
+hist((hc$total.cell.count^0.406), main = "Transformed Data", breaks = 5)
+hist((tau$total.cell.count^0.406), main = "Transformed Data", breaks = 5)
+hist((tdp$total.cell.count^0.406), main = "Transformed Data", breaks = 5)
+hist((ad$total.cell.count^0.406), main = "Transformed Data", breaks = 5)
+# verify data is still normal after transformation via shapiro test 
+shapiro.test(hc$total.cell.count^0.406)
+shapiro.test(tau$total.cell.count^0.406)
+shapiro.test(tdp$total.cell.count^0.406)
+shapiro.test(ad$total.cell.count^0.406)
+# create new column with transformed data
+df$trans.total.cell.count = (df$total.cell.count)^0.406
+
+# cell size
+DataTransformation(hc$Cell.Size)
+DataTransformation(tau$Cell.Size)
+DataTransformation(tdp$Cell.Size)
+DataTransformation(ad$Cell.Size)
+# ideal uniform lambda = 0.306 - visualize transformed data
+hist(((hc$Cell.Size)^0.306), main = "Transformed Data", breaks = 5)
+hist(((tau$Cell.Size)^0.306), main = "Transformed Data", breaks = 5)
+hist(((tdp$Cell.Size)^0.306), main = "Transformed Data", breaks = 5)
+hist((ad$Cell.Size^0.306), main = "Transformed Data", breaks = 5)
+# verify data is still normal after transformation via shapiro test 
+shapiro.test((hc$Cell.Size)^0.306)
+shapiro.test((tau$Cell.Size)^0.306)
+shapiro.test((tdp$Cell.Size)^0.306)
+shapiro.test((ad$Cell.Size)^0.306)
+# create new column with transformed data
+df$trans.Cell.Size = (df$Cell.Size)^0.306
+
+# percent IC NM
+DataTransformation(hc$Percent.IC.NM)
+DataTransformation(tau$Percent.IC.NM)
+DataTransformation(tdp$Percent.IC.NM)
+DataTransformation(ad$Percent.IC.NM)
+# ideal uniform lambda = 1.05 - visualize transformed data      ########### ############# ############ ADD TRANSFORMTUKEY FUNCTION NOTE - AVG'D LAMBDA VALS
+hist((hc$Percent.IC.NM^1.05), main = "Transformed Data", breaks = 5)   
+hist((tau$Percent.IC.NM^1.05), main = "Transformed Data", breaks = 5)
+hist((tdp$Percent.IC.NM^1.05), main = "Transformed Data", breaks = 5)
+hist((ad$Percent.IC.NM^1.05), main = "Transformed Data", breaks = 5)    
+# verify data is still normal after transformation via shapiro test 
+shapiro.test(hc$Percent.IC.NM^1.05)    
+shapiro.test(tau$Percent.IC.NM^1.05)
+shapiro.test(tdp$Percent.IC.NM^1.05)
+shapiro.test(ad$Percent.IC.NM^1.05)
+# create new column with transformed data
+df$trans.Percent.IC.NM = (df$Percent.IC.NM)^1.05
+
+# Raw EC NM        
+DataTransformation(hc$Total.EC.NM.Area)
+DataTransformation(tau$Total.EC.NM.Area)
+DataTransformation(tdp$Total.EC.NM.Area)
+DataTransformation(ad$Total.EC.NM.Area)
+# use transformTukey function on variables to ID best lambda value 
+transformTukey(hc$Total.EC.NM.Area)
+transformTukey(tau$Total.EC.NM.Area)
+transformTukey(tdp$Total.EC.NM.Area)
+transformTukey(ad$Total.EC.NM.Area)
+# ideal uniform lambda = 0.1875 - visualize transformed data - calculated from average of ideal lambda values
+hist((hc$Total.EC.NM.Area^0.1875), main = "Transformed Data", breaks = 5)
+hist((tau$Total.EC.NM.Area^0.1875), main = "Transformed Data", breaks = 5)
+hist((tdp$Total.EC.NM.Area^0.1875), main = "Transformed Data", breaks = 5)
+hist((ad$Total.EC.NM.Area^0.1875), main = "Transformed Data", breaks = 5)
+# verify data is still normal after transformation via shapiro test 
+shapiro.test(hc$Total.EC.NM.Area^0.1875)
+shapiro.test(tau$Total.EC.NM.Area^0.1875)
+shapiro.test(tdp$Total.EC.NM.Area^0.1875)
+shapiro.test(ad$Total.EC.NM.Area^0.1875)
+# create new column with transformed data
+df$trans.Total.EC.NM.Area = (df$Total.EC.NM.Area)^0.1875
+
+# normalized EC are
+DataTransformation(hc$norm.Total.EC.NM.Area)
+DataTransformation(tau$norm.Total.EC.NM.Area)
+DataTransformation(tdp$norm.Total.EC.NM.Area)
+DataTransformation(ad$norm.Total.EC.NM.Area)
+# ideal uniform lambda = 0.369 - visualize transformed data
+hist((hc$norm.Total.EC.NM.Area^0.369), main = "Transformed Data", breaks = 5)
+hist((tau$norm.Total.EC.NM.Area^0.369), main = "Transformed Data", breaks = 5)
+hist((tdp$norm.Total.EC.NM.Area^0.369), main = "Transformed Data", breaks = 5)
+hist((ad$norm.Total.EC.NM.Area^0.369), main = "Transformed Data", breaks = 5)
+# verify data is still normal after transformation via shapiro test 
+shapiro.test(hc$norm.Total.EC.NM.Area^0.369)
+shapiro.test(tau$norm.Total.EC.NM.Area^0.369)
+shapiro.test(tdp$norm.Total.EC.NM.Area^0.369)
+shapiro.test(ad$norm.Total.EC.NM.Area^0.369)
+# create new column with transformed data
+df$trans.norm.Total.EC.NM.Area = (df$norm.Total.EC.NM.Area)^0.369
+
+
+
+df$AO.ic.nm.AO.ec.nm = df$Percent.IC.NM/df$norm.Total.EC.NM.Area
+df$ln.AO.ic.nm.AO.ec.nm = log(df$AO.ic.nm.AO.ec.nm)
+```
+
+Z score cohorts to control group
+```{r}
+# re-subset cohorts with added transformed columns
+hc=df %>% filter(cohort_recoded_1HC_2AD_3TAU_4TDP_5OTHER==1)
+tau = df %>%
+  filter(cohort_recoded_1HC_2AD_3TAU_4TDP_5OTHER==3)
+tdp = df %>%
+  filter(cohort_recoded_1HC_2AD_3TAU_4TDP_5OTHER==4)
+ad = df %>%
+  filter(cohort_recoded_1HC_2AD_3TAU_4TDP_5OTHER==2)
+
+# Z score measures to HC group
+      # cell density
+df$z.trans.norm.total.cell.count = (df$trans.norm.total.cell.count - mean(hc$trans.norm.total.cell.count))/sd(hc$trans.norm.total.cell.count)
+      # cell count 
+df$z.trans.total.cell.count = (df$trans.total.cell.count - mean(hc$trans.total.cell.count))/sd(hc$trans.total.cell.count)
+      # cell size
+df$z.trans.Cell.Size = (df$trans.Cell.Size - mean(hc$trans.Cell.Size))/sd(hc$trans.Cell.Size)
+      # percent IC NM
+df$z.trans.Percent.IC.NM = (df$trans.Percent.IC.NM - mean(hc$trans.Percent.IC.NM))/sd(hc$trans.Percent.IC.NM)
+      # EC NM density
+df$z.trans.norm.Total.EC.NM.Area = (df$trans.norm.Total.EC.NM.Area - mean(hc$trans.norm.Total.EC.NM.Area))/sd(hc$trans.norm.Total.EC.NM.Area)
+      # EC NM
+df$z.trans.Total.EC.NM.Area = (df$trans.Total.EC.NM.Area - mean(hc$trans.Total.EC.NM.Area))/sd(hc$trans.Total.EC.NM.Area)
+
+#ggplot(df, aes(z.trans.norm.total.cell.count)) + geom_histogram() + facet_wrap(~Cohort)
+
+#subset groups
+
+all.path.cohort = df %>%
+  filter(!cohort_recoded_1HC_2AD_3TAU_4TDP_5OTHER==1)
+
+hc=df %>% filter(cohort_recoded_1HC_2AD_3TAU_4TDP_5OTHER==1)
+
+tau = df %>%
+  filter(cohort_recoded_1HC_2AD_3TAU_4TDP_5OTHER==3)
+tdp = df %>%
+  filter(cohort_recoded_1HC_2AD_3TAU_4TDP_5OTHER==4)
+ad = df %>%
+  filter(cohort_recoded_1HC_2AD_3TAU_4TDP_5OTHER==2)
+
+AO.ic.nm.AO.ec.nm
+# raw box plots
+boxplot(total.cell.count ~ Cohort, data = df, id = TRUE, main = "Raw Cell Count")
+boxplot(Cell.Size ~ Cohort, data = df, id = TRUE, main = "Raw Cell Size ")
+boxplot(Percent.IC.NM ~ Cohort, data = df, id = TRUE, main = "Raw % IC NM")
+boxplot(Total.EC.NM.Area ~ Cohort, data = df, id = TRUE, main = "Raw EC NM Area")
+
+outliers<- Boxplot(AO.ic.nm.AO.ec.nm ~ Cohort, data = df, id=list(n=Inf))  #Label outlier points
+# df$Cohort = factor(df$Cohort,levels(df$Cohort)[c(2,1,3,4)]) # HC, TDP, TAU, AD
+boxplot(ln.AO.ic.nm.AO.ec.nm ~ Cohort, data = df, id = TRUE, main = "ln transformed %AO IC NM: %AO EC NM")
+
+# ROI normalized 
+boxplot(norm.total.cell.count ~ Cohort, data = df, id = TRUE, main = "ROI Normalized Cell Count")
+boxplot(norm.Total.EC.NM.Area ~ Cohort, data = df, id = TRUE, main = "ROI Normalized EC NM Area")
+
+# transformed box plots
+boxplot(trans.norm.total.cell.count ~ Cohort, data = df, id = TRUE, main = "Transformed Cell density")
+boxplot(trans.Cell.Size ~ Cohort, data = df, id = TRUE, main = "Transformed Cell Size ")
+boxplot(trans.Percent.IC.NM ~ Cohort, data = df, id = TRUE, main = "Transformed % IC NM")
+boxplot(trans.norm.Total.EC.NM.Area ~ Cohort, data = df, id = TRUE, main = "Transformed EC NM density")
+boxplot(trans.total.cell.count ~ Cohort, data = df, id = TRUE, main = "Transformed Cell count")
+boxplot(trans.Total.EC.NM.Area ~ Cohort, data = df, id = TRUE, main = "Transformed EC NM Area")
+
+# Z scored box plots
+all.path.cohort$Cohort=droplevels(all.path.cohort$Cohort)
+boxplot(z.trans.norm.total.cell.count ~ Cohort, data = all.path.cohort, id = TRUE, main = "Z scored Cell density")
+boxplot(z.trans.Cell.Size ~ Cohort, data = all.path.cohort, id = TRUE, main = "Z scored Cell Size ")
+boxplot(z.trans.Percent.IC.NM ~ Cohort, data = all.path.cohort, id = TRUE, main = "Z scored % IC NM")
+boxplot(z.trans.norm.Total.EC.NM.Area ~ Cohort, data = all.path.cohort, id = TRUE, main = "Z scored EC NM density")
+boxplot(z.trans.total.cell.count ~ Cohort, data = all.path.cohort, id = TRUE, main = "Z scored Cell count")
+boxplot(z.trans.Total.EC.NM.Area ~ Cohort, data = all.path.cohort, id = TRUE, main = "Z scored EC NM Area")
+
+```
+
+
+```{r}
+# Cell count, cell size and IC NM data = normally distributed according to shaprio test
+# natural log transform norm.total.ec.nm.area
+hc$ln=log(hc$norm.Total.EC.NM.Area)
+shapiro.test(hc$ln)
+hist(hc$ln)
+
+#transform rest of the dataframe 
+df$ln_norm.Total.EC.NM.Area = log(df$norm.Total.EC.NM.Area)
+
+hc=df %>% filter(cohort_recoded_1HC_2AD_3TAU_4TDP_5OTHER==1)
+
+
+# Z score measures to HC group
+df$z.total.cell.count = (df$norm.total.cell.count - mean(hc$norm.total.cell.count))/sd(hc$norm.total.cell.count)
+
+df$z.cell.size = (df$Cell.Size - mean(hc$Cell.Size))/sd(hc$Cell.Size)
+
+df$z.Percent.IC.NM = (df$Percent.IC.NM - mean(hc$Percent.IC.NM))/sd(hc$Percent.IC.NM)
+
+df$z.ln_norm.Total.EC.NM.Area = (df$ln_norm.Total.EC.NM.Area - mean(hc$ln_norm.Total.EC.NM.Area))/sd(hc$ln_norm.Total.EC.NM.Area)
+
+all.path.cohort$Cohort=droplevels(all.path.cohort$Cohort)
+
+boxplot(z.ln_norm.Total.EC.NM.Area ~ Cohort, data = all.path.cohort, id = TRUE, main = "Z scored EC NM Area")
+boxplot(z.Percent.IC.NM ~ Cohort, data = all.path.cohort, id = TRUE, main = "Z scored percent IC NM")
+boxplot(z.cell.size ~ Cohort, data = all.path.cohort, id = TRUE, main = "Z scored cell size")
+boxplot(z.total.cell.count ~ Cohort, data = all.path.cohort, id = TRUE, main = "Z scored cell count")
+
+
+t.test(tau$z.ln_norm.Total.EC.NM.Area, tdp$z.ln_norm.Total.EC.NM.Area)
+t.test(tau$z.Percent.IC.NM, tdp$z.Percent.IC.NM)
+t.test(tau$z.cell.size, tdp$z.cell.size)
+t.test(tau$z.total.cell.count, tdp$z.total.cell.count)
+
+t.test(tau$norm.total.cell.count, tdp$norm.total.cell.count)
+t.test(tau$total.cell.count, tdp$total.cell.count)
+
+
+wilcox.test(tau$z.ln_norm.Total.EC.NM.Area, tdp$z.ln_norm.Total.EC.NM.Area)
+wilcox.test(tau$z.Percent.IC.NM, tdp$z.Percent.IC.NM)
+wilcox.test(tau$z.cell.size, tdp$z.cell.size)
+wilcox.test(tau$z.total.cell.count, tdp$z.total.cell.count)
+
+```
+```{r}
+###evaluate classes
+
+df$ln.norm.TH.pos.NM.neg.count = log(df$norm.TH.pos.NM.neg.count)
+hist(df$ln.norm.TH.pos.NM.neg.count)
+
+df$ln.norm.TH.neg.NM.pos.count = log(df$norm.TH.neg.NM.pos.count)
+hist(df$ln.norm.TH.neg.NM.pos.count)
+
+df$ln.TH.pos.NM.neg.Cell.Size = log(df$TH.pos.NM.neg.Cell.Size)
+hist(df$ln.TH.pos.NM.neg.Cell.Size)
+
+df$ln.TH.neg.NM.pos.Percent.IC.NM = log(df$TH.neg.NM.pos.Percent.IC.NM)
+hist(df$ln.TH.neg.NM.pos.Percent.IC.NM)
+
+hc=df %>% filter(cohort_recoded_1HC_2AD_3TAU_4TDP_5OTHER==1)
+
+
+# Z score measures to HC group
+df$z.TH.pos.NM.pos.count = (df$norm.TH.pos.NM.pos.count - mean(hc$norm.TH.pos.NM.pos.count))/sd(hc$norm.TH.pos.NM.pos.count)
+
+df$z.TH.pos.NM.neg.count = (df$ln.norm.TH.pos.NM.neg.count - mean(hc$ln.norm.TH.pos.NM.neg.count))/sd(hc$ln.norm.TH.pos.NM.neg.count)
+
+df$z.TH.neg.NM.pos.count = (df$ln.norm.TH.neg.NM.pos.count - mean(hc$ln.norm.TH.neg.NM.pos.count))/sd(hc$ln.norm.TH.neg.NM.pos.count)
+
+## cell size
+df$z.TH.pos.NM.pos.Cell.Size = (df$TH.pos.NM.pos.Cell.Size - mean(hc$TH.pos.NM.pos.Cell.Size))/sd(hc$TH.pos.NM.pos.Cell.Size)
+
+df$z.TH.pos.NM.neg.Cell.Size = (df$ln.TH.pos.NM.neg.Cell.Size - mean(hc$ln.TH.pos.NM.neg.Cell.Size))/sd(hc$ln.TH.pos.NM.neg.Cell.Size)
+
+df$z.TH.neg.NM.pos.Cell.Size = (df$TH.neg.NM.pos.Cell.Size - mean(hc$TH.neg.NM.pos.Cell.Size))/sd(hc$TH.neg.NM.pos.Cell.Size)
+
+## percent IC.NM
+df$z.TH.pos.NM.pos.Percent.IC.NM = (df$TH.pos.NM.pos.Percent.IC.NM - mean(hc$TH.pos.NM.pos.Percent.IC.NM))/sd(hc$TH.pos.NM.pos.Percent.IC.NM)
+
+df$z.TH.pos.NM.neg.Percent.IC.NM = (df$TH.pos.NM.neg.Percent.IC.NM - mean(hc$TH.pos.NM.neg.Percent.IC.NM))/sd(hc$TH.pos.NM.neg.Percent.IC.NM)
+
+df$z.TH.neg.NM.pos.Percent.IC.NM = (df$ln.TH.neg.NM.pos.Percent.IC.NM - mean(hc$ln.TH.neg.NM.pos.Percent.IC.NM))/sd(hc$ln.TH.neg.NM.pos.Percent.IC.NM)
+
+
+#subsetgroups
+
+all.path.cohort = df %>%
+  filter(!cohort_recoded_1HC_2AD_3TAU_4TDP_5OTHER==1)
+
+hc=df %>% filter(cohort_recoded_1HC_2AD_3TAU_4TDP_5OTHER==1)
+
+tau = df %>%
+  filter(cohort_recoded_1HC_2AD_3TAU_4TDP_5OTHER==3)
+tdp = df %>%
+  filter(cohort_recoded_1HC_2AD_3TAU_4TDP_5OTHER==4)
+ad = df %>%
+  filter(cohort_recoded_1HC_2AD_3TAU_4TDP_5OTHER==2)
+
+
+# plot results
+all.path.cohort$Cohort=droplevels(all.path.cohort$Cohort)
+
+boxplot(z.TH.pos.NM.pos.count ~ Cohort, data = all.path.cohort, id = TRUE, main = "Z scored TH+/NM+ cell count")
+boxplot(z.TH.pos.NM.pos.Cell.Size ~ Cohort, data = all.path.cohort, id = TRUE, main = "Z scored TH+/NM+ cell size")
+boxplot(z.TH.pos.NM.pos.Percent.IC.NM ~ Cohort, data = all.path.cohort, id = TRUE, main = "Z scored TH+/NM+ percent IC NM")
+
+boxplot(z.TH.pos.NM.pos.Percent.IC.NM ~ Cohort, data = all.path.cohort, id = TRUE, main = "Z scored TH+/NM+ percent IC NM")
+
+
+
+boxplot(z.cell.size ~ Cohort, data = all.path.cohort, id = TRUE, main = "Z scored cell size")
+boxplot(z.total.cell.count ~ Cohort, data = all.path.cohort, id = TRUE, main = "Z scored cell count")
+
+
+t.test(tau$z.TH.neg.NM.pos.Percent.IC.NM, tdp$z.TH.neg.NM.pos.Percent.IC.NM)
+t.test(tau$z.TH.pos.NM.neg.Percent.IC.NM, tdp$z.TH.pos.NM.neg.Percent.IC.NM)
+t.test(tau$z.cell.size, tdp$z.cell.size)
+t.test(tau$z.total.cell.count, tdp$z.total.cell.count)
+
+t.test(tau$norm.total.cell.count, tdp$norm.total.cell.count)
+t.test(tau$total.cell.count, tdp$total.cell.count)
+```
+
+Transform Data
+```{r}
+library(dplyr)
+library(anchors)
+library(ggplot2)
+library(ggbeeswarm)
+
+DataTransformation = function(var){
+  df<-as.data.frame(var) %>% transmute("Rank" = rank(var, ties.method = "average", na.last = "keep"), "λ=3" = var^3, "λ=2" = var^2, "λ=1" = var, "λ=0.5" = var^(1/2), "λ=0" = log(var), "λ=-0.5" = -var^(-1/2), "λ=-1" = -var^(-1), "λ=-2" = -var^(-2), "λ=-3" = -var^(-3))
+ 
+  df<-anchors::replace.value(data=df, names = c("λ=3", "λ=2", "λ=1", "λ=0.5", "λ=0", "λ=-0.5", "λ=-1", "λ=-2", "λ=-3"), from = "-Inf", to = as.double(NA))
+ 
+  print(lapply(df, shapiro.test))
+ 
+  print(gather(df, key = "Power", value = "Value", -Rank) %>% mutate(Power = factor(Power, levels = c("λ=3", "λ=2", "λ=1", "λ=0.5", "λ=0", "λ=-0.5", "λ=-1", "λ=-2", "λ=-3"))) %>% ggplot(aes(x=0, y=Value)) + geom_boxplot(outlier.shape = NA) + geom_beeswarm(shape=21, aes(fill = Rank)) + facet_wrap(~Power, scales = "free_y") + labs(x="", y="", title = "Tukey's ladder of powers y=x^λ"))
+}
+
+hc=df %>% filter(cohort_recoded_1HC_2AD_3TAU_4TDP_5OTHER==1)
+
+DataTransformation(hc$Percent.IC.NM)
+
+#identify transformation for EC.ROI size
+y=transformTukey(hc$Percent.IC.NM)
+
+
+#Visualize Transformed Data
+    #Histograms
+hist(hc$EC.ROI.norm.size, main = "Raw Data")
+hist((hc$EC.ROI.norm.size^0.2), main = "Transformed Data")
+    #Histograms with Overlay
+plotNormalHistogram(hc$EC.ROI.norm.size^0.25)
+plotNormalHistogram(hc$EC.ROI.norm.size^0.2)
+    #Q-Q Plots
+qqPlot(hc$EC.ROI.norm.size, main = "qqPlot of Raw Data")
+qqPlot((hc$EC.ROI.norm.size^0.2), main = "qqPlot of Transformed Data")
+
+
+df$t1.EC.ROI.norm.size = (df$EC.ROI.norm.size^0.2)
+
+hc=df %>% filter(cohort_recoded_1HC_2AD_3TAU_4TDP_5OTHER==1)
+
+
+#EC Z scored to HC
+df$EC.ROI.HC.t1.norm = (df$t1.EC.ROI.norm.size - mean(hc$t1.EC.ROI.norm.size))/sd(hc$t1.EC.ROI.norm.size)
+df2$EC.ROI.HC.t1.norm = (df2$t1.EC.ROI.norm.size - mean(hc$t1.EC.ROI.norm.size))/sd(hc$t1.EC.ROI.norm.size)
+
+#subset groups
+
+all.path.cohort = df %>%
+  filter(!cohort_recoded_1HC_2AD_3TAU_4TDP_5OTHER==1)
+
+hc=df %>% filter(cohort_recoded_1HC_2AD_3TAU_4TDP_5OTHER==1)
+
+tau = df %>%
+  filter(cohort_recoded_1HC_2AD_3TAU_4TDP_5OTHER==3)
+tdp = df %>%
+  filter(cohort_recoded_1HC_2AD_3TAU_4TDP_5OTHER==4)
+ad = df %>%
+  filter(cohort_recoded_1HC_2AD_3TAU_4TDP_5OTHER==2)
+
+t.test(tau$t1.EC.ROI.norm.size, tdp$t1.EC.ROI.norm.size)
+t.test(tau$EC.ROI.HC.t1.norm, tdp$EC.ROI.HC.t1.norm)
+
+boxplot(t1.EC.ROI.norm.size ~ Cohort, data = all.path.cohort, id = TRUE, main = "Transformed EC NM Area")
+
+boxplot(EC.ROI.HC.t1.norm ~ Cohort, data = all.path.cohort, id = TRUE, main = "Transformed EC NM Area")
+
+```
+
+
+
+####tenative normaized results
+```{r}
+# make new column for cell count / total EC area
+df = df %>% 
+  dplyr::mutate(cell.count.per.area = total.cell.count/Total.LC.Area)
+
+hc=df %>% filter(cohort_recoded_1HC_2AD_3TAU_4TDP_5OTHER==1)
+
+transformTukey(hc$EC.ROI.norm.size)
+transformTukey(hc$Avg.Percent.IC.NM)
+transformTukey(hc$Avg.Cell.Size)
+transformTukey(hc$cell.count.per.area)
+
+
+
+#Visualize Transformed Data
+    #Histograms
+hist(hc$EC.ROI.norm.size, main = "Raw Data")
+hist((hc$EC.ROI.norm.size^0.2), main = "Transformed Data")
+    #Histograms with Overlay
+plotNormalHistogram(hc$EC.ROI.norm.size^0.25)
+plotNormalHistogram(hc$EC.ROI.norm.size^0.2)
+    #Q-Q Plots
+qqPlot(hc$EC.ROI.norm.size, main = "qqPlot of Raw Data")
+qqPlot((hc$EC.ROI.norm.size^0.2), main = "qqPlot of Transformed Data")
+
+
+df$t1.EC.ROI.norm.size = (df$EC.ROI.norm.size^0.2)
+df$t.Avg.Percent.IC.NM = (df$Avg.Percent.IC.NM^2)
+df$t.Avg.Cell.Size = (df$Avg.Cell.Size^0.425)
+df$t.cell.count.per.area = (df$cell.count.per.area^0.525)
+
+hc=df %>% filter(cohort_recoded_1HC_2AD_3TAU_4TDP_5OTHER==1)
+
+
+#EC Z scored to HC
+df$EC.ROI.HC.t1.norm = (df$t1.EC.ROI.norm.size - mean(hc$t1.EC.ROI.norm.size))/sd(hc$t1.EC.ROI.norm.size)
+
+df$t.HC.Avg.Percent.IC.NM = (df$t.Avg.Percent.IC.NM - mean(hc$t.Avg.Percent.IC.NM))/sd(hc$t.Avg.Percent.IC.NM)
+
+df$t.HC.Avg.Cell.Size = (df$t.Avg.Cell.Size - mean(hc$t.Avg.Cell.Size))/sd(hc$t.Avg.Cell.Size)
+
+df$t.HC.cell.count.per.area = (df$t.cell.count.per.area - mean(hc$t.cell.count.per.area))/sd(hc$t.cell.count.per.area)
+
+#subset groups
+
+all.path.cohort = df %>%
+  filter(!cohort_recoded_1HC_2AD_3TAU_4TDP_5OTHER==1)
+
+hc=df %>% filter(cohort_recoded_1HC_2AD_3TAU_4TDP_5OTHER==1)
+
+tau = df %>%
+  filter(cohort_recoded_1HC_2AD_3TAU_4TDP_5OTHER==3)
+tdp = df %>%
+  filter(cohort_recoded_1HC_2AD_3TAU_4TDP_5OTHER==4)
+ad = df %>%
+  filter(cohort_recoded_1HC_2AD_3TAU_4TDP_5OTHER==2)
+
+### T Tests
+t.test(tau$t1.EC.ROI.norm.size, tdp$t1.EC.ROI.norm.size)
+t.test(tau$EC.ROI.HC.t1.norm, tdp$EC.ROI.HC.t1.norm)
+
+t.test(tau$t.Avg.Percent.IC.NM, tdp$t.Avg.Percent.IC.NM)
+t.test(tau$t.HC.Avg.Percent.IC.NM, tdp$t.HC.Avg.Percent.IC.NM)
+
+t.test(tau$t.Avg.Cell.Size, tdp$t.Avg.Cell.Size)
+t.test(tau$t.HC.Avg.Cell.Size, tdp$t.HC.Avg.Cell.Size)
+
+t.test(tau$t.cell.count.per.area, tdp$t.cell.count.per.area)
+t.test(tau$t.HC.cell.count.per.area, tdp$t.HC.cell.count.per.area)
+
+#### Mann Whitney U
+wilcox.test(tau$t1.EC.ROI.norm.size, tdp$t1.EC.ROI.norm.size)
+wilcox.test(tau$EC.ROI.HC.t1.norm, tdp$EC.ROI.HC.t1.norm)
+
+wilcox.test(tau$t.Avg.Percent.IC.NM, tdp$t.Avg.Percent.IC.NM)
+wilcox.test(tau$t.HC.Avg.Percent.IC.NM, tdp$t.HC.Avg.Percent.IC.NM)
+
+wilcox.test(tau$t.Avg.Cell.Size, tdp$t.Avg.Cell.Size)
+wilcox.test(tau$t.HC.Avg.Cell.Size, tdp$t.HC.Avg.Cell.Size)
+
+wilcox.test(tau$t.cell.count.per.area, tdp$t.cell.count.per.area)
+wilcox.test(tau$t.HC.cell.count.per.area, tdp$t.HC.cell.count.per.area)
+
+
+boxplot(t.Avg.Percent.IC.NM ~ Cohort, data = all.path.cohort, id = TRUE)
+boxplot(t.Avg.Cell.Size ~ Cohort, data = all.path.cohort, id = TRUE)
+boxplot(t.cell.count.per.area ~ Cohort, data = all.path.cohort, id = TRUE)
+
+```
+
+
+
+
+```{r boxplots, echo=FALSE}
+boxplot(EC.NM.Area.in.LC ~ Cohort, data = df, id = TRUE, main = "Raw EC NM Area")
+boxplot(Sum.IC.NM.Area ~ Cohort, data = df, id = TRUE, main = "Raw IC NM Area" )
+boxplot(Avg.Percent.IC.NM ~ Cohort, data = df, id = TRUE, main = "Raw Avg. % of IC NM" )
+boxplot(total.cell.count ~ Cohort, data = df, id = TRUE, main = "Raw Total Cell Count" )
+boxplot(Number.NM.TH.Cells ~ Cohort, data = df, id = TRUE, main = "Raw Number of TH Positive Cells" )
+boxplot(Avg.Cell.Size ~ Cohort, data = df, id = TRUE, main = "Avg. Cell Size of Raw Values" )
+
+
+#### Identifying Outliers ####
+# outliers<- Boxplot(EC.NM.Area ~ Cohort, data = df, id=list(n=Inf))  #Label outlier points
+# df.wide.by.cohort$ID <- seq.int(nrow(df.wide.by.cohort)) #add ID number to each row
+# outlier.autopsys = df.wide.by.cohort %>%  #filter outliers from total cohort
+#   filter(ID %in% outliers)
+# outlier.autopsys  #print autopsyIDs of outliers
+# 
+# ## boxplot by NPDx1
+# ggplot(df, aes(y=Avg.Cell.Size, x = NPDx1)) + 
+#   geom_boxplot()+
+#   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+#   labs(title = "Avg. Cell Size by NPDx1")
+```
+
+```{r Normalizing data, echo=FALSE}
+
+        # # Total cell count
+    # hc.avg.cell.count = mean(hc$total.cell.count)
+    # hc.sd.cell.count = sd(hc$total.cell.count)
+        # #NM TH Positive cell count
+    # hc.avg.nm.cell.count = mean(hc$Number.NM.TH.Cells)
+    # hc.sd.nm.cell.count = sd(hc$Number.NM.TH.Cells)
+       # # Avg cell size
+    # hc.avg.cell.size = mean(hc$Avg.Cell.Size)
+    # hc.sd.cell.size = sd(hc$Avg.Cell.Size)
+        # # Avg. %IC.NM
+    # hc.avg.pct.ic.nm = mean(hc$Avg.Percent.IC.NM)
+    # hc.sd.pct.ic.nm = sd(hc$Avg.Percent.IC.NM)
+
+#create column for normalized data
+df$norm.cell.count = (df$total.cell.count - mean(hc$total.cell.count))/sd(hc$total.cell.count)
+#df$norm.nm.cell.count = (df$Number.NM.TH.Cells - mean(hc$Number.NM.TH.Cells))/sd(hc$Number.NM.TH.Cells)
+df$norm.cell.size = (df$Avg.Cell.Size - mean(hc$Avg.Cell.Size))/sd(hc$Avg.Cell.Size)
+df$norm.pct.ic.nm = (df$Avg.Percent.IC.NM - mean(hc$Avg.Percent.IC.NM))/sd(hc$Avg.Percent.IC.NM)
+
+
+#EC Z scored to HC
+df$LC.ROI.HC.norm = (df$EC.NM.Area.in.LC - mean(hc$EC.NM.Area.in.LC))/sd(hc$EC.NM.Area.in.LC)
+
+#write.csv(df, "normalized values.csv", row.names = F)
+
+# check distribution
+ggplot(df, aes(x=norm.cell.count)) +
+    geom_histogram(position="identity") +
+    facet_grid(~Cohort, scales = "free_x")
+
+
+
+hist(tau$norm.cell.count, main = "Norm. Tau Cell Count")
+hist(tdp$norm.cell.count, main = "Norm. TDP Cell Count")
+hist(ad$norm.cell.count, main = "Norm. AD Cell Count")
+
+hist(tau$total.cell.count, main = "Raw Tau Cell Count")
+hist(tdp$total.cell.count, main = "Raw TDP Cell Count")
+hist(ad$total.cell.count, main = "Raw AD Cell Count")
+
+hist(tau$norm.cell.size, main = "Norm. Tau Cell size")
+hist(tdp$norm.cell.size, main = "Norm. TDP Cell size")
+hist(ad$norm.cell.size, main = "Norm. AD Cell size")
+
+hist(tau$Avg.Cell.Size, main = "Raw Tau Cell size")
+hist(tdp$Avg.Cell.Size, main = "Raw TDP Cell size")
+hist(ad$Avg.Cell.Size, main = "Raw AD Cell size")
+
+hist(tau$norm.pct.ic.nm, main = "Norm. Tau Avg. % IC NM")
+hist(tdp$norm.pct.ic.nm, main = "Norm. TDP Avg. % IC NM")
+hist(ad$norm.pct.ic.nm, main = "Norm. AD Avg. % IC NM")
+
+hist(tau$Avg.Percent.IC.NM, main = "Raw Tau Avg. % IC NM")
+hist(tdp$Avg.Percent.IC.NM, main = "Raw TDP Avg. % IC NM")
+hist(ad$Avg.Percent.IC.NM, main = "Raw AD Avg. % IC NM")
+
+
+```
+
+```{r}
+df$EC.ROI.norm.size.HC = (df$EC.ROI.norm.size - mean(hc$EC.ROI.norm.size))/sd(hc$EC.ROI.norm.size) # normalize size to HC cohort
+
+boxplot(LC.ROI.HC.norm ~ Cohort, data = df, id = TRUE, main = "LC ROI HC Norm" )
+boxplot(EC.ROI.norm.size ~ Cohort, data = df, id = TRUE, main = "LC ROI Size Norm" )
+boxplot(EC.ROI.norm.size.HC ~ Cohort, data = df, id = TRUE, main = "LC ROI Size Norm to HC" )
+
+
+# ggplot(df, aes(y= EC.ROI.norm.size.HC, x = Cohort)) + geom_bar(stat = "identity")
+# ggplot(df, aes(y= EC.ROI.norm.size, x = Cohort)) + geom_bar(stat = "identity")
+
+```
+
+
+

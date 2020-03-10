@@ -1,0 +1,500 @@
+---
+title: "LC Phase 1"
+author: "Claire S. Peterson"
+date: "1/8/2020"
+output:
+  pdf_document: default
+  html_document: default
+editor_options:
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+setwd("U:/FTDC-IrwinLab/Ohm - TH Phase 1/Ohm - TH Phase 2")
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(readxl)
+library(reshape2)
+library(tableone)
+
+
+#import data
+all.raw <- read_excel("U:/FTDC-IrwinLab/Ohm - TH Phase 1/Classified All.xlsx", sheet = "EC NM")
+cell.dat.raw = read_excel("U:/FTDC-IrwinLab/Ohm - TH Phase 1/Classified All.xlsx", sheet = "IC NM")
+cell.dat.with.ec.alg.raw = read_excel("U:/FTDC-IrwinLab/Ohm - TH Phase 1/Classified All.xlsx", sheet = "IC NM with EC Alg")
+
+
+slideid_pattern <- "^[0-9]{2,4}(?# Autopsy Year matching 2-4 digits between 0-9)\\-([0-9]{1,3})(?# Autopsy case number matching 1-3 digits between 0-1)\\-([0-9]{1,2})([EFB])"
+# all.raw <- read_excel("U:/FTDC-IrwinLab/Ohm - TH Phase 1/Ohm - TH Phase 2/LC ROI Results/LC ROI Phase 2.xlsx")
+# cell.dat.raw = read_excel("U:/FTDC-IrwinLab/Ohm - TH Phase 1/Ohm - TH Phase 2/Cell detection results/Phase 2 Cell Results.xlsx")
+names(cell.dat.raw) # names(all.raw)
+```
+
+```{r cleaning total area data}
+total.area <- all.raw[,c(2, 4:6, 10, 13, 14)] #selects following columns: image, parent, roi, postive pixel area, total roi area, positive % of total roi
+names(total.area)
+colnames(total.area)[grep ("(.*?)of.total.ROI(.*)", names(total.area))] <- "total LC percent.AO" # Rename the %AO column to avoid special characters using grep()
+
+total.area$slideID <- stringr::str_extract_all(as.matrix(total.area[,1]), slideid_pattern, simplify = TRUE)  #Create a new column in df to contain SlideID
+total.area$autopsyID <- stringr::str_extract_all(as.matrix(total.area[,1]), "^([0-9]{2,4})\\-([0-9]{1,3})", simplify = TRUE)  #Create a new column in df to contain AutopsyID
+
+# total.area$autopsyID.full <- ifelse(grepl("^([8-9]{1}([0-9]{1}))\\-([0-9]{1,3})",total.area$autopsyID), paste("19",total.area$autopsyID, sep = ""), paste("20",total.area$autopsyID, sep = "")) #add century to autopsyIDs
+total.area$autopsyID.full <- as.factor(total.area$autopsyID)
+total.area$Class <- as.factor(total.area$Class)
+total.area$`Positive pixel area µm^2` <- as.numeric(total.area$`Positive pixel area µm^2`)
+total.area$`Total ROI area µm^2` <- as.numeric(total.area$`Total ROI area µm^2`)
+
+total.area <- total.area[,c("Parent", "Class", "Positive pixel area µm^2", "Total ROI area µm^2", "autopsyID", "autopsyID.full")] #select columns of interest
+
+total.area <- total.area %>%
+  dplyr::select(autopsyID.full, `Positive pixel area µm^2`, `Total ROI area µm^2`) %>%
+  group_by(autopsyID.full) %>%
+  summarise(Total.NM.Area.in.LC = sum(`Positive pixel area µm^2`, na.rm = T),
+            Total.LC.Area = sum(`Total ROI area µm^2`, na.rm = T))
+```
+
+```{r Clean and summarize cell data ran with EC alg}
+ic.nm.ec.alg <- cell.dat.with.ec.alg.raw[,c(1, 2, 3:6, 10, 13, 14)]
+
+ic.nm.ec.alg = ic.nm.ec.alg %>% 
+  filter(!Class == "duplicate") %>% 
+  filter(!Name == "PathAnnotationObject")
+
+#### Convert columns to factors/numerics ####
+ic.nm.ec.alg$AutopsyID = as.factor(ic.nm.ec.alg$AutopsyID)
+colnames(ic.nm.ec.alg)[grep ("(.*?)of.total.ROI(.*)", names(ic.nm.ec.alg))] <- "individual cell percent.AO" # Rename the %AO column to avoid special characters using grep()
+ic.nm.ec.alg$slideID <- stringr::str_extract_all(as.matrix(ic.nm.ec.alg[,1]), slideid_pattern, simplify = TRUE)  #Create a new column in df to contain SlideID
+ic.nm.ec.alg$autopsyID <- stringr::str_extract_all(as.matrix(ic.nm.ec.alg[,1]), "^([0-9]{2,4})\\-([0-9]{1,3})", simplify = TRUE)  #Create a new column in df to contain AutopsyID
+
+ic.nm.ec.alg$`Positive pixel area µm^2` <- as.numeric(ic.nm.ec.alg$`Positive pixel area µm^2`)
+ic.nm.ec.alg$`Total ROI area µm^2` <- as.numeric(ic.nm.ec.alg$`Total ROI area µm^2`)
+ic.nm.ec.alg$`individual cell percent.AO` <- as.numeric(ic.nm.ec.alg$`individual cell percent.AO`)
+ic.nm.ec.alg$Parent <- as.factor(ic.nm.ec.alg$Parent)
+ic.nm.ec.alg$autopsyID.full <- as.factor(ic.nm.ec.alg$autopsyID)
+# ic.nm.ec.alg$autopsyID.full <- ifelse(grepl("^([8-9]{1}([0-9]{1}))\\-([0-9]{1,3})",ic.nm.ec.alg$autopsyID), paste("19",ic.nm.ec.alg$autopsyID, sep = ""), paste("20",ic.nm.ec.alg$autopsyID, sep = "")) #add century to autopsyIDs
+
+ic.nm.ec.alg.clean <- ic.nm.ec.alg %>%
+  dplyr::select(AutopsyID, `Positive pixel area µm^2`, `Total ROI area µm^2`, `individual cell percent.AO`) %>%
+  group_by(AutopsyID) %>%
+  summarise(Sum.IC.NM.Area.w.EC.Alg = sum(`Positive pixel area µm^2`, na.rm = TRUE),
+            Sum.Total.Cell.Area.w.EC.Alg = sum(`Total ROI area µm^2`, na.rm = TRUE))
+```
+
+``` {r combine EC dfs}
+
+ec.alg.merged <- merge (ic.nm.ec.alg.clean, total.area, by.x="AutopsyID", by.y="autopsyID.full")
+total.area.ec.merged = ec.alg.merged %>%
+  mutate(Total.EC.NM.Area = Total.NM.Area.in.LC - Sum.IC.NM.Area.w.EC.Alg,
+         Total.EC.Area = Total.LC.Area - Sum.Total.Cell.Area.w.EC.Alg)
+
+# Re sort columns
+total.area.ec.merged = total.area.ec.merged %>%
+  dplyr::select(AutopsyID, Total.LC.Area, Total.EC.Area, Total.EC.NM.Area, Sum.IC.NM.Area.w.EC.Alg, Sum.Total.Cell.Area.w.EC.Alg, Total.NM.Area.in.LC)
+```
+
+```{r cleaning cell data}
+cell.data <- cell.dat.raw[,c(1, 2, 3:6, 10, 13, 14)]
+#### Convert columns to factors/numerics ####
+
+cell.data = cell.data %>% 
+  filter(!Class == "duplicate") %>% 
+  filter(!Name == "PathAnnotationObject")
+
+colnames(cell.data)[grep ("(.*?)of.total.ROI(.*)", names(cell.data))] <- "individual cell percent.AO" # Rename the %AO column to avoid special characters using grep()
+cell.data$slideID <- stringr::str_extract_all(as.matrix(cell.data[,1]), slideid_pattern, simplify = TRUE)  #Create a new column in df to contain SlideID
+cell.data$autopsyID <- stringr::str_extract_all(as.matrix(cell.data[,1]), "^([0-9]{2,4})\\-([0-9]{1,3})", simplify = TRUE)  #Create a new column in df to contain AutopsyID
+
+cell.data$`Positive pixel area µm^2` <- as.numeric(cell.data$`Positive pixel area µm^2`)
+cell.data$`Total ROI area µm^2` <- as.numeric(cell.data$`Total ROI area µm^2`)
+cell.data$`individual cell percent.AO` <- as.numeric(cell.data$`individual cell percent.AO`)
+cell.data$Parent <- as.factor(cell.data$Parent)
+cell.data$autopsyID.full <- as.factor(cell.data$autopsyID)
+# cell.data$autopsyID.full <- ifelse(grepl("^([8-9]{1}([0-9]{1}))\\-([0-9]{1,3})",cell.data$autopsyID), paste("19",cell.data$autopsyID, sep = ""), paste("20",cell.data$autopsyID, sep = "")) #add century to autopsyIDs
+```
+
+```{r summarizing cell data}
+#create new dataframe with average IC NM
+ic.nm <- cell.data %>%
+  dplyr::select(autopsyID, autopsyID.full, Parent, `Positive pixel area µm^2`, `Total ROI area µm^2`, `individual cell percent.AO`) %>%
+  mutate(Percent.IC.NM = (mean(cell.data$`Positive pixel area µm^2`, na.rm = TRUE)/cell.data$`Total ROI area µm^2`)*100)
+ #write.csv(ic.nm, "IC.NM Data values only - no duplicates.csv", row.names = FALSE) #write NM cell data as csv
+
+#create new dataframe with summarized results REGARDLESS OF CLASSIFICATION
+total.cell.summaries = cell.data %>%
+  dplyr::select(autopsyID.full, `Positive pixel area µm^2`, `Total ROI area µm^2`, `individual cell percent.AO`) %>%
+  group_by(autopsyID.full) %>%
+  summarise(total.cell.count = n(),
+            Sum.IC.NM.Area = sum(`Positive pixel area µm^2`, na.rm = TRUE),
+            Sum.Total.Cell.Area = sum(`Total ROI area µm^2`, na.rm = TRUE),
+            Percent.IC.NM = (Sum.IC.NM.Area/Sum.Total.Cell.Area)*100,
+            Cell.Size = mean(`Total ROI area µm^2`, na.rm = T))
+
+#### TH POSITIVE - consists of TH POSITIVE/NM NEGATIVE and TH POSITIVE/NM POSITIVE ####
+# TH POSITIVE NM NEGATIVE
+TH_pos_NM_neg <- cell.data %>%
+  filter(Class == "TH_pos_NM_pos") %>% 
+  filter(`Positive pixel area µm^2` <= 0) %>% #select rows with no IC NM --> TH positive, NM negative
+  dplyr::select(autopsyID.full, `Positive pixel area µm^2`, `Total ROI area µm^2`, `individual cell percent.AO`) %>%
+  group_by(autopsyID.full) %>%
+  summarise(TH.pos.NM.neg.count = sum(`Positive pixel area µm^2` <= 0, na.rm = T),
+            TH.pos.NM.neg.Sum.IC.NM.Area = sum(`Positive pixel area µm^2`, na.rm = TRUE),
+            TH.pos.NM.neg.Sum.Total.Cell.Area = sum(`Total ROI area µm^2`, na.rm = TRUE),
+            TH.pos.NM.neg.Percent.IC.NM = (TH.pos.NM.neg.Sum.IC.NM.Area/TH.pos.NM.neg.Sum.Total.Cell.Area)*100,
+            TH.pos.NM.neg.Cell.Size = mean(`Total ROI area µm^2`, na.rm = T))
+# TH POSITIVE NM POSITIVE  
+TH_pos_NM_pos <- cell.data %>%
+  filter(Class == "TH_pos_NM_pos") %>%
+  filter(`Positive pixel area µm^2` > 0) %>% #select rows with IC NM --> TH positive, NM positive
+  dplyr::select(autopsyID.full, `Positive pixel area µm^2`, `Total ROI area µm^2`, `individual cell percent.AO`) %>%
+  group_by(autopsyID.full) %>%
+  summarise(TH.pos.NM.pos.count = sum(`Positive pixel area µm^2` > 0, na.rm = T),
+            TH.pos.NM.pos.Sum.IC.NM.Area = sum(`Positive pixel area µm^2`, na.rm = TRUE),
+            TH.pos.NM.pos.Sum.Total.Cell.Area = sum(`Total ROI area µm^2`, na.rm = TRUE),
+            TH.pos.NM.pos.Percent.IC.NM = (TH.pos.NM.pos.Sum.IC.NM.Area/TH.pos.NM.pos.Sum.Total.Cell.Area)*100,
+            TH.pos.NM.pos.Cell.Size = mean(`Total ROI area µm^2`, na.rm = T))  
+
+#### TH NEGATIVE - consists of TH NEGATIVE/NM POSITIVE ####
+# TH NEGATIVE NM POSITIVE  
+TH_neg_NM_pos <- cell.data %>%
+  filter(Class == "TH_neg_NM_pos") %>%
+  dplyr::select(autopsyID.full, `Positive pixel area µm^2`, `Total ROI area µm^2`, `individual cell percent.AO`) %>%
+  group_by(autopsyID.full) %>%
+  summarise(TH.neg.NM.pos.count = sum(`Positive pixel area µm^2` > 0, na.rm = T),
+            TH.neg.NM.pos.Sum.IC.NM.Area = sum(`Positive pixel area µm^2`, na.rm = TRUE),
+            TH.neg.NM.pos.Sum.Total.Cell.Area = sum(`Total ROI area µm^2`, na.rm = TRUE),
+            TH.neg.NM.pos.Percent.IC.NM = (TH.neg.NM.pos.Sum.IC.NM.Area/TH.neg.NM.pos.Sum.Total.Cell.Area)*100,
+            TH.neg.NM.pos.Cell.Size = mean(`Total ROI area µm^2`, na.rm = T))  
+
+
+#### COMBINE ALL SUMMARIZED OUTPUTS INTO SINGLE DF ####
+df1 = left_join(total.cell.summaries, TH_pos_NM_pos, by = "autopsyID.full")
+df2 = left_join(df1, TH_pos_NM_neg, by = "autopsyID.full")
+df3 = left_join(df2, TH_neg_NM_pos, by = "autopsyID.full")
+
+#### Re-order column ####
+df3 = df3 %>% 
+  dplyr::select(autopsyID.full, total.cell.count, TH.pos.NM.pos.count, TH.pos.NM.neg.count, TH.neg.NM.pos.count, Cell.Size, TH.pos.NM.pos.Cell.Size, TH.pos.NM.neg.Cell.Size, TH.neg.NM.pos.Cell.Size, Percent.IC.NM, TH.pos.NM.pos.Percent.IC.NM, TH.pos.NM.neg.Percent.IC.NM, TH.neg.NM.pos.Percent.IC.NM, Sum.IC.NM.Area, TH.pos.NM.pos.Sum.IC.NM.Area, TH.pos.NM.neg.Sum.IC.NM.Area, TH.neg.NM.pos.Sum.IC.NM.Area, Sum.Total.Cell.Area, TH.pos.NM.pos.Sum.Total.Cell.Area, TH.pos.NM.neg.Sum.Total.Cell.Area, TH.neg.NM.pos.Sum.Total.Cell.Area)
+```
+
+```{r combine cell measures with total LC measures}
+combdf <- merge (df3, total.area.ec.merged, by.x="autopsyID.full", by.y="AutopsyID")
+combdf <- combdf %>% 
+  group_by(autopsyID.full) %>%
+  mutate(norm.total.cell.count = (total.cell.count/Total.LC.Area)*100,
+         norm.TH.pos.NM.pos.count = (TH.pos.NM.pos.count/Total.LC.Area)*100,
+         norm.TH.pos.NM.neg.count = (TH.pos.NM.neg.count/Total.LC.Area)*100,
+         norm.TH.neg.NM.pos.count = (TH.neg.NM.pos.count/Total.LC.Area)*100,
+         norm.Total.EC.NM.Area = (Total.EC.NM.Area/Total.LC.Area)*100)
+  # mutate(EC.ROI.norm.size = (EC.NM.Area.in.LC/ Total.LC.Area)*100,
+  #        Pct.NM.TH.Pos.Cells = (Number.NM.TH.Cells/total.cell.count)*100,
+  #        EC.NM.Area = Total.NM.Area.in.LC - Sum.IC.NM.Area,
+  #        Pct.EC.NM.Area = (EC.NM.Area/Total.NM.Area.in.LC)*100,
+  #        Pct.IC.NM.Area = (Sum.IC.NM.Area/Total.NM.Area.in.LC)*100)
+    # combdf2 = combdf[-c(9,10,13,17,20:22,25,26,32,41,46:48,50),]
+    # combdf2 = combdf2 %>% 
+    #   mutate(Pct.NM.TH.Pos.Cells = (Number.NM.TH.Cells/total.cell.count)*100,
+    #          EC.NM.Area = Total.NM.Area.in.LC - Sum.IC.NM.Area,
+    #          Pct.EC.NM.Area = (EC.NM.Area/Total.NM.Area.in.LC)*100)
+#write.csv(combdf, "Summarized LC Data Phase 2 - no duplicates.csv", row.names = F)
+
+```
+
+
+```{r dealing with duplicates, include=FALSE, echo=FALSE}
+## DUPLICATE CELL DATA FROM BILATERAL/DUPLICATE SECTIONS ##
+# cell.data.dup = cell.data %>%
+#   filter(Parent=="duplicate") %>%
+#   filter(!Parent=="Image") %>%
+#   select(autopsyID.full, `Positive pixel area µm^2`, `Total ROI area µm^2`, `individual cell percent.AO`) %>%
+#   group_by(autopsyID.full) %>%
+#   summarise(total.cell.count = n(),
+#             Number.NM.TH.Cells = sum(`Positive pixel area µm^2` > 0, na.rm = T),
+#             Sum.IC.NM.Area = sum(`Positive pixel area µm^2`, na.rm = TRUE),
+#             Sum.Total.Cell.Area = sum(`Total ROI area µm^2`, na.rm = TRUE))
+# 
+# unique(cell.data.dup$autopsyID.full) #confirm duplicate cases
+# 
+# ic.nm.dup <- cell.data %>%
+#   select(autopsyID, autopsyID.full, Parent, `Positive pixel area µm^2`, `Total ROI area µm^2`, `individual cell percent.AO`) %>%
+#   mutate(avg.IC.NM = (mean(cell.data$`Positive pixel area µm^2`, na.rm = TRUE)/cell.data$`Total ROI area µm^2`)*100) %>%
+#   filter(!Parent=="Image") %>%
+#   filter(Parent=="duplicate")
+
+## DUPLICATE LC ROI DATA FROM BILATERAL/DUPLICATE SECTIONS ##
+# combdf.dup <- merge (cell.data.dup, total.area.dup, by.x="autopsyID.full", by.y="LC.autopsyID.full")
+# combdf.dup <- combdf.dup %>%
+#   mutate(Pct.NM.TH.Pos.Cells = (Number.NM.TH.Cells/total.cell.count)*100,
+#          EC.NM.Area = Total.NM.Area.in.LC - Sum.IC.NM.Area,
+#          Pct.EC.NM.Area = (EC.NM.Area/Total.NM.Area.in.LC)*100)
+# # write.csv(combdf.dup, "Summarized LC Values Only Data Phase 2 - duplicates.csv", row.names = F)
+
+```
+
+```{r add demographics and clinical data to semi-quant, echo=FALSE}
+alldigital.cases<- read_excel("U:/FTDC-IrwinLab/Ohm - TH Phase 1/Copy of LC_Master_v12_.xlsx", sheet = "Sheet1", .name_repair = "universal")
+ic.nm.merge <- merge (ic.nm, alldigital.cases, by.x="autopsyID.full", by.y="AutopsyID") #combine individual cell values with Dx info
+#write.csv(ic.nm.merge, "IC NM with Dx.csv", row.names = F)
+comb.sum.dat <- merge (combdf, alldigital.cases, by.x="autopsyID.full", by.y="AutopsyID") # combine summarized values with Dx info
+ggplot(data=comb.sum.dat, aes(comb.sum.dat$Percent.IC.NM)) + 
+  geom_histogram(binwidth=.5, colour="black", fill="white", breaks=seq(0, 100, by = 10)) + 
+  labs(title="Histogram for LC Cells") +
+  labs(x="% IC NM", y="Count") + 
+  facet_wrap(~Cohort)
+#write.csv(comb.sum.dat, "Summarized LC Combined Results.csv", row.names = F)
+ggplot(data=comb.sum.dat, aes(x=comb.sum.dat$Cohort, y=comb.sum.dat$Percent.IC.NM)) + 
+geom_point() 
+comb.sum.dat %>%
+  group_by(Cohort) %>%
+  summarise(groupavg = mean(Pct.IC.NM,na.rm=T))
+boxplot(x=comb.sum.dat$Cohort,y=comb.sum.dat$Pct.IC.NM)
+#write.csv(comb.sum.dat, "Summarized LC Combined Data Phase 2 - no duplicates.csv", row.names = F)
+
+comb.ic.nm.dat<- merge (ic.nm, alldigital.cases, by.x="autopsyID.full", by.y="AutopsyID")
+#write.csv(comb.ic.nm.dat, "IC.NM Data Combined data.csv", row.names = FALSE)
+      # All duplicate/bilateral sections were averaged
+      # comb.sum.dup.dat<- merge (combdf.dup, alldigital.cases, by.x="autopsyID.full", by.y="AutopsyID")
+      # #write.csv(comb.sum.dup.dat, "Summarized LC Combined Data Phase 2 - duplicates.csv", row.names = F)
+      # 
+      # comb.ic.nm.dup.dat<- merge (ic.nm.dup, alldigital.cases, by.x="autopsyID.full", by.y="AutopsyID")
+      # #write.csv(comb.ic.nm.dup.dat, "IC.NM Data Combined Phase 2 - duplicates.csv", row.names = FALSE)
+```
+
+**Dan's Weird Histograms**
+```{r, echo=FALSE}
+### Dan's Weird Histograms
+alldigital.cases<- read.csv("U:/FTDC-IrwinLab/Ohm - TH Phase 1/Copy of LC_Master_v12_.csv")
+
+diagnoses_demos<- alldigital.cases %>%
+  select(AutopsyID, Cohort, cohort_recoded_1HC_2AD_3TAU_4TDP_5OTHER, NPDx1, ClinicalDx1, Race, Ethnicity, Education, Sex, HighestOccupation, AgeatDeath)
+npd = alldigital.cases %>%
+  select(PMI, BrainWeight, Braak03, Braak06, ABeta, CERAD, FTLDTDP, ARTAG, Arteriolosclerosis)
+
+#### cleaning IC NM data####
+diagnoses_demos$Cohort <- as.factor(diagnoses_demos$Cohort)
+cases.to.select= unique(ic.nm$autopsyID)
+diagnoses_demos$AutopsyID<-as.character(diagnoses_demos$AutopsyID)
+selected.cases <- diagnoses_demos %>%
+  filter(AutopsyID  %in% cases.to.select)
+
+
+ic.nm <- ic.nm %>% 
+  # add unique id for rows to be able to use spread
+  group_by(autopsyID) %>%
+  mutate(unique_id = row_number())
+ic.nm <- ic.nm[,-c(2)] #remove parent column
+merged.df.wide <- merge (ic.nm, selected.cases, by.x="autopsyID", by.y="AutopsyID")
+
+
+merged.df.wide2 = read.csv("U:/FTDC-IrwinLab/Ohm - TH Phase 1/Phase 1 Final Data/IC.NM Data Combined Phase 1 - no duplicates.csv")
+
+
+ggplot(data=merged.df.wide2, aes(merged.df.wide2$individual.cell.percent.AO)) + 
+  geom_histogram(binwidth=.5, colour="black", fill="white", breaks=seq(0, 100, by = 10)) + 
+  labs(title="Histogram for LC Cells") +
+  labs(x="% IC NM", y="Count") + 
+  facet_wrap(~Cohort...4)
+
+ggplot(data=merged.df.wide, aes(merged.df.wide$individual.cell.percent.AO)) + 
+  geom_histogram(binwidth=.5, colour="black", fill="white", breaks=seq(0, 100, by = 10)) + 
+  labs(title="Histogram for LC Cells by clinical Dx") +
+  labs(x="% IC NM", y="Count") + 
+  facet_wrap(~ClinicalDx1...12)
+merged.df.wide %>% 
+  group_by(ClinicalDx1...12) %>%
+  count()
+
+ggplot(data=comb.sum.dat, aes(comb.sum.dat$individual.cell.percent.AO)) + 
+  geom_histogram(binwidth=.5, colour="black", fill="white", breaks=seq(0, 100, by = 10)) + 
+  labs(title="Histogram for LC Cells by NPDx") +
+  labs(x="% IC NM", y="Count") + 
+  facet_wrap(~NPDx1)
+merged.df.wide %>% 
+  group_by(NPDx1) %>%
+  count()
+
+ggplot(data=merged.df.wide, aes(merged.df.wide$individual.cell.percent.AO)) + 
+  geom_histogram(binwidth=.5, colour="black", fill="white", breaks=seq(0, 100, by = 10)) + 
+  labs(title="Histogram for LC Cells by Braak 03 stage") +
+  labs(x="% IC NM", y="Count") + 
+  facet_wrap(~Braak03)
+
+
+ggplot(data=merged.df.wide, aes(merged.df.wide$individual.cell.percent.AO)) + 
+  geom_histogram(binwidth=.5, colour="black", fill="white", breaks=seq(0, 100, by = 10)) + 
+  labs(title="Histogram for LC Cells by Braak06") +
+  labs(x="% IC NM", y="Count") + 
+  facet_wrap(~Braak06)
+
+ggplot(data=merged.df.wide, aes(merged.df.wide$individual.cell.percent.AO)) + 
+  geom_histogram(binwidth=.5, colour="black", fill="white", breaks=seq(0, 100, by = 10)) + 
+  labs(title="Histogram for LC Cells by FTLDTDP") +
+  labs(x="% IC NM", y="Count") + 
+  facet_wrap(~FTLDTDP)
+
+ggplot(data=merged.df.wide, aes(merged.df.wide$individual.cell.percent.AO)) + 
+  geom_histogram(binwidth=.5, colour="black", fill="white", breaks=seq(0, 100, by = 10)) + 
+  labs(title="Histogram for LC Cells by ARTAG") +
+  labs(x="% IC NM", y="Count") + 
+  facet_wrap(~ARTAG)
+
+
+
+```
+
+**Cohort Demographics with table1 pkg**
+```{r Cohort demographics with table1 pkg, echo=FALSE}
+diagnoses_demos2 <- alldigital.cases[1:168,] #Phase 1 cases
+diagnoses_demos2 =  diagnoses_demos2 %>%
+  filter(LC.Absent == "Present")
+
+# Factor the basic variables that
+# we're interested in
+diagnoses_demos2$cohort <- 
+  factor(diagnoses_demos2$cohort_recoded_1HC_2AD_3TAU_4TDP_5OTHER, 
+         levels=c(1,2,3,4,0),
+         labels=c("HC", # Reference
+                  "AD", 
+                  "Tau",
+                  "TDP",
+                  "Other"))
+diagnoses_demos2$NPDx1 = as.factor(diagnoses_demos2$NPDx1)
+diagnoses_demos2$ClinicalDx1 = as.factor(diagnoses_demos2$ClinicalDx1)
+diagnoses_demos2$agegroup <- 
+  ifelse(diagnoses_demos2$AgeatDeath >= 30 & diagnoses_demos2$AgeatDeath < 45, 1, 
+  ifelse(diagnoses_demos2$AgeatDeath >= 45 & diagnoses_demos2$AgeatDeath < 60, 2,
+  ifelse(diagnoses_demos2$AgeatDeath >= 60 & diagnoses_demos2$AgeatDeath < 75, 3,
+  ifelse(diagnoses_demos2$AgeatDeath >= 75 & diagnoses_demos2$AgeatDeath < 90, 4,
+  ifelse(diagnoses_demos2$AgeatDeath >= 90 , 5, NA)))))
+diagnoses_demos2$agegroup<- factor(diagnoses_demos2$agegroup, 
+         levels=c(1,2,3,4,5),
+         labels=c("[30-45)", # Reference
+                  "[45-60)", 
+                  "[60-75)",
+                  "[75-90)",
+                  "[95-)"))
+diagnoses_demos2$Sex = ifelse(diagnoses_demos2$Sex == "Male", 1,
+                              ifelse(diagnoses_demos2$Sex == "Female", 0, NA))
+diagnoses_demos2$Sex = 
+  factor (diagnoses_demos2$Sex,
+          levels = c(0,1),
+          labels = c("Female",
+                     "Male"))
+# diagnoses_demos2$Education = as.factor(diagnoses_demos2$Education)
+diagnoses_demos2$Race = as.factor(diagnoses_demos2$Race)
+diagnoses_demos2$Ethnicity = as.factor(diagnoses_demos2$Ethnicity)
+
+table1(~ Sex + agegroup + Race + Ethnicity + NPDx1 + ClinicalDx1 | cohort, data=diagnoses_demos2)
+
+table1(~ PMI + Braak03 + Braak06 + CERAD + FTLDTDP | cohort, data=diagnoses_demos2)
+```
+
+*Histograms binned by % IC.NM occupied*
+``` {r}
+########Histograms
+sub25<- merged.df.wide%>%
+  group_by(Cohort...4) %>% 
+  filter(individual.cell.percent.AO <=25)%>%
+  count()
+sub50<- merged.df.wide%>%
+  group_by(Cohort...4) %>% 
+  filter(individual.cell.percent.AO > 25 & individual.cell.percent.AO <=50)%>%
+  count()
+sub75<- merged.df.wide%>%
+  group_by(Cohort...4) %>% 
+  filter(individual.cell.percent.AO > 50 & individual.cell.percent.AO <=75)%>%
+  count()
+sub100 <- merged.df.wide%>%
+  group_by(Cohort...4) %>% 
+  filter(individual.cell.percent.AO > 75 & individual.cell.percent.AO <=100)%>%
+  count()
+
+x<- cbind(sub25, sub50, sub75, sub100)
+x=x %>% select(Cohort...4, n,n1,n2,n3)
+colnames(x) <- c("Cohort", "sub25","sub50","sub75","sub100")
+
+ggplot(data=merged.df.wide, aes(merged.df.wide$individual.cell.percent.AO)) + 
+  geom_histogram(binwidth=.5, colour="black", fill="white", breaks=seq(0, 100, by = 10)) + 
+  labs(title="Histogram for LC Cells") +
+  labs(x="% IC NM", y="Count") + 
+  facet_wrap(~Cohort...4,scales = "free_y")
+x
+```
+
+
+
+
+
+*With new EC only output*
+
+```{r cleaning total area data}
+all.raw <- read_excel("U:/FTDC-IrwinLab/Ohm - TH Phase 1/EC NM New Alg. Results/All EC NM New Alg. Results.xlsx")
+slideid_pattern <- "^[0-9]{2,4}(?# Autopsy Year matching 2-4 digits between 0-9)\\-([0-9]{1,3})(?# Autopsy case number matching 1-3 digits between 0-1)\\-([0-9]{1,2})([EF])"
+
+total.area <- all.raw[,c(2, 4:6, 10, 13, 14)] #selects following columns: image, parent, roi, postive pixel area, total roi area, positive % of total roi
+names(total.area)
+colnames(total.area)[grep ("(.*?)of.total.ROI(.*)", names(total.area))] <- "total LC percent.AO" # Rename the %AO column to avoid special characters using grep()
+
+total.area$slideID <- stringr::str_extract_all(as.matrix(total.area[,1]), slideid_pattern, simplify = TRUE)  #Create a new column in df to contain SlideID
+total.area$autopsyID <- stringr::str_extract_all(as.matrix(total.area[,1]), "^([0-9]{2,4})\\-([0-9]{1,3})", simplify = TRUE)  #Create a new column in df to contain AutopsyID
+
+# total.area$autopsyID.full <- ifelse(grepl("^([8-9]{1}([0-9]{1}))\\-([0-9]{1,3})",total.area$autopsyID), paste("19",total.area$autopsyID, sep = ""), paste("20",total.area$autopsyID, sep = "")) #add century to autopsyIDs
+total.area$autopsyID.full <- as.factor(total.area$autopsyID)
+total.area$Class <- as.factor(total.area$Class)
+total.area$`Positive pixel area µm^2` <- as.numeric(total.area$`Positive pixel area µm^2`)
+total.area$`Total ROI area µm^2` <- as.numeric(total.area$`Total ROI area µm^2`)
+
+total.area <- total.area[,c("Parent", "Class", "Positive pixel area µm^2", "Total ROI area µm^2", "autopsyID", "autopsyID.full")] #select columns of interest
+total.area <- total.area %>%
+  dplyr::select(`autopsyID.full`, `Positive pixel area µm^2`, `Total ROI area µm^2`) %>%
+  group_by(autopsyID.full) %>%
+  summarise(EC.NM.Area.in.LC = sum(`Positive pixel area µm^2`, na.rm = T),
+            Total.LC.Area = sum(`Total ROI area µm^2`, na.rm = T))
+# colnames(total.area) <- c("Parent", "Class", "Total.NM.Area.in.LC", "Total.LC.Area", "LC.autopsyID","LC.autopsyID.full") #rename columns
+
+# total.area.dup = total.area %>%
+#   filter(Class == "duplicate")
+# total.area.no.dup = total.area %>%
+#   filter(is.na(Class))
+total.area[duplicated(total.area[c("autopsyID.full")]),]   #confirm no duplicates
+
+```
+
+```{r combine cell measures with total LC measures}
+#combdf <- merge (cell.data.clean, total.area, by.x="autopsyID.full", by.y="autopsyID.full")
+combdf = total.area
+combdf <- combdf %>% 
+  group_by(autopsyID.full) %>%
+  mutate(EC.ROI.norm.size = (EC.NM.Area.in.LC/ Total.LC.Area)*100)
+
+# combdf <- combdf %>% 
+#   group_by(autopsyID.full) %>%
+#   mutate(Pct.NM.TH.Pos.Cells = (Number.NM.TH.Cells/total.cell.count)*100,
+#          EC.NM.Area = Total.NM.Area.in.LC - Sum.IC.NM.Area,
+#          Pct.EC.NM.Area = (EC.NM.Area/Total.NM.Area.in.LC)*100,
+#          Pct.IC.NM.Area = (Sum.IC.NM.Area/Total.NM.Area.in.LC)*100)
+    # combdf2 = combdf[-c(9,10,13,17,20:22,25,26,32,41,46:48,50),]
+    # combdf2 = combdf2 %>% 
+    #   mutate(Pct.NM.TH.Pos.Cells = (Number.NM.TH.Cells/total.cell.count)*100,
+    #          EC.NM.Area = Total.NM.Area.in.LC - Sum.IC.NM.Area,
+    #          Pct.EC.NM.Area = (EC.NM.Area/Total.NM.Area.in.LC)*100)
+#write.csv(combdf, "Summarized LC Data Phase 2 - no duplicates.csv", row.names = F)
+
+```
+
+```{r add demographics and clinical data to semi-quant, echo=FALSE}
+alldigital.cases<- read_excel("U:/FTDC-IrwinLab/Ohm - TH Phase 1/Copy of LC_Master_v12_.xlsx", sheet = "Sheet1", .name_repair = "universal")
+
+#write.csv(ic.nm.merge, "IC NM with Dx.csv", row.names = F)
+comb.sum.dat <- merge (combdf, alldigital.cases, by.x="autopsyID.full", by.y="AutopsyID") # combine summarized values with Dx info
+ggplot(data=comb.sum.dat, aes(comb.sum.dat$Cell.Size)) + 
+  # geom_histogram(binwidth=.5, colour="black", fill="white", breaks=seq(0, 100, by = 10)) + 
+  # labs(title="Histogram for LC Cells") +
+  labs(x="% IC NM", y="Count") + facet_wrap(~Cohort)
+
+hist(comb.sum.dat$Cell.Size)
+ggplot(data = comb.sum.dat, aes(comb.sum.dat$Cell.Size))+
+  geom_histogram()+
+  facet_wrap(~Cohort)
+```
